@@ -171,7 +171,7 @@ when (paymentType) {
 
 </details>
 
-<details open>
+<details>
     <summary>Java</summary>
 
 ```java
@@ -496,7 +496,7 @@ if (
 
 </details>
 
-<details open>
+<details>
     <summary>Java</summary>
 
 ```java
