@@ -1,11 +1,8 @@
-@file:OptIn(ExperimentalCoroutinesApi::class)
-
 package com.alsatpardakht
 
 import com.alsatpardakht.alsatipgcore.domain.model.PaymentType
 import com.alsatpardakht.alsatipgdesktop.AlsatIPG
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collect
+import java.awt.Desktop
 import java.lang.Thread.sleep
 import java.net.URI
 
@@ -15,36 +12,45 @@ val paymentType = PaymentType.Mostaghim
 
 fun main() {
     testSign()
-    sleep(600_000)
+    sleep(600_000)// in order to keep the console alive
+    removeObservers()
 }
 
 fun testSign() {
-    CoroutineScope(Dispatchers.Default).launch {
-        alsatIPG.paymentSignStatusAsFlow.collect { paymentSignResult ->
-            when {
-                paymentSignResult.isSuccessful -> {
-                    println("successful")
-                    println(paymentSignResult)
+    alsatIPG.paymentSignStatus.observeForever { paymentSignResult ->
+        when {
+            paymentSignResult.isSuccessful -> {
+                println("successful")
+                println(paymentSignResult)
 
-                    println(">> validation <<")
-                    print("enter tref : ")
-                    val tref = readln()
-                    print("enter iN : ")
-                    val iN = readln()
-                    print("enter iD : ")
-                    val iD = readln()
-                    print("enter PayId : ")
-                    val PayId = readln()
+                try {
+                    if (Desktop.isDesktopSupported() &&
+                        Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)
+                    ) {
+                        Desktop.getDesktop().browse(URI(paymentSignResult.url!!))
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
 
-                    testValidation(tref = tref, iN = iN, iD = iD, PayId = PayId)
-                    readln()
-                }
-                paymentSignResult.isLoading -> {
-                    println("loading")
-                }
-                else -> {
-                    println("error : " + paymentSignResult.error?.message)
-                }
+                println(">> validation <<")
+                print("enter tref : ")
+                val tref = readln()
+                print("enter iN : ")
+                val iN = readln()
+                print("enter iD : ")
+                val iD = readln()
+                print("enter PayId : ")
+                val PayId = readln()
+
+                testValidation(tref = tref, iN = iN, iD = iD, PayId = PayId)
+                readln()
+            }
+            paymentSignResult.isLoading -> {
+                println("loading")
+            }
+            else -> {
+                println("error : " + paymentSignResult.error?.message)
             }
         }
     }
@@ -66,27 +72,33 @@ fun testSign() {
 }
 
 fun testValidation(tref: String, iN: String, iD: String, PayId: String) {
-    CoroutineScope(Dispatchers.Default).launch {
-        alsatIPG.paymentValidationStatusAsFlow.collect { paymentValidationResult ->
-            when {
-                paymentValidationResult.isSuccessful -> {
-                    println("successful")
-                    println(paymentValidationResult)
+    alsatIPG.paymentValidationStatus.observeForever { paymentValidationResult ->
+        when {
+            paymentValidationResult.isSuccessful -> {
+                println("successful")
+                println("payment Validation Success data = ${paymentValidationResult.data}")
+                if (
+                    (paymentValidationResult.data?.PSP?.IsSuccess == true) &&
+                    (paymentValidationResult.data?.VERIFY?.IsSuccess == true)
+                ) {
+                    println("money transferred")
+                } else {
+                    println("money has not been transferred")
                 }
-                paymentValidationResult.isLoading -> {
-                    println("loading")
-                }
-                else -> {
-                    println("error : " + paymentValidationResult.error?.message)
-                }
+            }
+            paymentValidationResult.isLoading -> {
+                println("loading")
+            }
+            else -> {
+                println("error : " + paymentValidationResult.error?.message)
             }
         }
     }
-//    val data = URI("http://eample.com/?tref=637829347727645295&iN=123&iD=2022/03/15%2009:52:54")
+//  val data = URI("http://eample.com/?tref=637829347727645295&iN=123&iD=2022/03/15%2009:52:54")
     when (paymentType) {
         PaymentType.Mostaghim -> alsatIPG.validationMostaghim(
             Api = API,
-//            data = data
+//          data = data
             tref = tref,
             iN = iN,
             iD = iD,
@@ -94,11 +106,16 @@ fun testValidation(tref: String, iN: String, iD: String, PayId: String) {
         )
         PaymentType.Vaset -> alsatIPG.validationVaset(
             Api = API,
-//            data = data
+//          data = data
             tref = tref,
             iN = iN,
             iD = iD,
             PayId = PayId
         )
     }
+}
+
+fun removeObservers() {
+    alsatIPG.paymentSignStatus.removeAllObservers()
+    alsatIPG.paymentValidationStatus.removeAllObservers()
 }
